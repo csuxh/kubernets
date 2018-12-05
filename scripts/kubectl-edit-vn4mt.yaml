@@ -1,0 +1,32 @@
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+# services "nginx-service" was not valid:
+# * spec.clusterIP: Invalid value: "10.96.25.117": field is immutable
+#
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: 2018-11-09T14:10:12Z
+  labels:
+    run: nginx
+  name: nginx-service
+  namespace: default
+  resourceVersion: "228558"
+  selfLink: /api/v1/namespaces/default/services/nginx-service
+  uid: 2c999c02-e429-11e8-8a15-54e1ad6a3937
+spec:
+  clusterIP: 10.109.25.117
+  externalTrafficPolicy: Cluster
+  ports:
+  - nodePort: 80 
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    run: nginx
+  sessionAffinity: None
+  type: NodePort
+status:
+  loadBalancer: {}
