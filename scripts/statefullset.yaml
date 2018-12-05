@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-svc
+  labels:
+    app: myapp-svc
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: myapp-pod
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: myapp
+spec:
+  serviceName: myapp-svc
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp-pod
+  template:
+    metadata:
+      labels: myapp-pod
+    spec:
+      containers:
+      - name: myapp
+        image: ikubernetes/myapp:v5
+        ports:
+        - containerPort: 80
+          name: web
+ 	VolumeMounts:
+    	- name: myappdata
+	  mountPath: /usr/share/nginx/html
+  VolumeClaimTemplates:
+  - metadata:
+     name: myappata
+    spec:
+	accessModes: [ "ReadWriteOnce" ]
+	storageClassName: "gluster-dynamic"
+	resources:
+	  request:
+ 	    storage: 2Gi
