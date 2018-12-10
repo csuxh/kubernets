@@ -9,7 +9,8 @@ spec:
   rules:
   - host: myapp.jack.com
     http:
-    - path:
-      backend:
-        serviceName: myapp-svc
-        servicePort: 80
+      paths:
+      - path:
+        backend:
+          serviceName: myapp-svc
+          servicePort: 80
