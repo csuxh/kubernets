@@ -639,7 +639,7 @@ pushgateway:
     loadBalancerIP: ""
     loadBalancerSourceRanges: []
     servicePort: 9091
-    type: ClusterIP
+    type: NodePort
 
 ## alertmanager ConfigMap entries
 ##
@@ -677,7 +677,7 @@ serverFiles:
           - targets:
             - localhost:9090
 
-      # A scrape configuration for running Prometheus on a Kubernetes cluster.
+      # A scrape configuration for running Prometheus on a Kubernetes luster.
       # This uses separate scrape configs for cluster components (i.e. API server, node)
       # and services to allow each to use different authentication configs.
       #

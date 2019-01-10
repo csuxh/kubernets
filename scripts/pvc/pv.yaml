@@ -19,7 +19,11 @@ spec:
   accessModes: 
   - ReadWriteOnce
   capacity:
+<<<<<<< HEAD
     storage: 4Gi 
+=======
+    storage: 5Gi 
+>>>>>>> 195f857d3d10cc3579861941ad654304e29e4ee6
   hostPath:
     path: /data/nfs/pv2
     type: DirectoryOrCreate
@@ -45,7 +49,7 @@ spec:
   accessModes:
   - ReadWriteOnce
   capacity:
-    storage: 2Gi
+    storage: 3Gi
   hostPath:
     path: /data/nfs/pv4
     type: DirectoryOrCreate
