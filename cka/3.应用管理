@@ -1,0 +1,2 @@
+[root@jack-master ~]# kubectl run dp-nginx --image=nginx:1.15.9 --replicas=2
+kubectl run --generator=deployment/apps.v1 is DEPRECATED and will be removed in a future version. Use kubectl run --generator=run-pod/v1 or kubectl create instead.
