@@ -56,6 +56,4 @@ Ingress:
 
 
 
-
-
-
+kubectl expose deploy/jackhttpd --port 80 --target-port=80
