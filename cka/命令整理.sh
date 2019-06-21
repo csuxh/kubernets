@@ -1,4 +1,4 @@
-1. master参与调度
+1. master鍙備笌璋冨害
 kubectl taint node k8s-master node-role.kubernetes.io/master-
 
 kubectl run jackhttpd-deploy --image=csuxh/jackhttpd:v1.0 --replicas=2
