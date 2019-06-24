@@ -1,0 +1,61 @@
+CKA
+
+
+三：k8s日志监控及管理
+deployment升级和回滚
+创建： kubectl run {deployment} --image={image} --replicas={rep.}
+升级： kubectl set image deployment/xxx nginx=nginx:1.9.1
+kubectl set resources deployment/xxx -c=nginx --limits=pu=200m,memory=512Mi
+
+升级策略：
+minReadySeconds: 5
+strategy:
+  type:RollingUpdate
+  rollingUpdate:
+    maxSurge: 1 #默认25%
+    maxUnavailable: 1 #默认25%
+
+暂停：kubectl rollout pause deployment/xxx (升级历史不会记录到history)
+恢复：kubectl rollout resume deployment/nginx-deployment
+状态：kubectl rollout status deployment/nginx-deployment
+查询：kubectl rollout history deploy/xxx (--revision=2)
+回滚： kubectl rollout undo deployment/xxx --to-revision=2
+
+
+弹性伸缩：kubectl scale deployment xxx --replicas=10 (或者直接kubectl edit)
+对结heapster和HPA联动之后自动：
+kubectl autoscale deployment xxx --min=10 --max=15 --cpu-percent=80
+
+应用自恢复： restartPolicy + livenessProbe
+Pod Restart Policy: Always, OnFailure, Never
+
+kubectl cluster-info  dump 
+kubectl run redis --image=redis
+
+
+四. K8S网络
+service:
+kubectl create service clusterip my-svc-ci --tcp:80:8080
+kubectl get endpoints
+kubectl create service nodeport my-svc-np  --tcp=1234:80
+Headless service:
+kubectl create service clusterip my-svc-headless --clusterip = "None"
+
+
+CNI: container network service
+容器网络标准化；使用Json描述网络配置
+两类接口：
+配置网络-创建容器时调用：AddNetwork
+清理网络-删除容器时调用：DelNetwork
+host-local+bridge   /opt/cni/bin/{host-local, bridge}
+
+Ingress: 
+ 
+ DNS：coredns
+ 
+
+
+
+
+
+
