@@ -1,0 +1,44 @@
+Qos Class:
+Guaranteed
+Burstable
+BestEffort
+
+
+POD控制器：
+ReplicaSet
+kubectl get pods -1 app=rs-demo -o \
+custom columns=Name:metadata name,Image:spec . conta 工ners[OJ .image
+
+kubectl scale replicasets rs-example --current-replcas = 2 --replicas=4
+kubectl delete replicasets rs-sample --cascade=false(保留pod)
+
+Deployment控制器：
+kubectl patch deploy/jackhttpd -p '{"spec": {"minReadySeconds": 5}}'
+kubectl set image deploy/jackhttpd jackhttpd=csuxh/jackhttpd:v1.1
+kubectl rollout status deploy/jackhttpd
+
+金丝雀发布(Canary Release)： pause/resume  maxSurge,maxUnavailable 部分更新, pause之后验证，再恢复完成更新
+kubectl patch deploy/jackhttpd -p '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1, "maxUnavailable": 0}}}}'
+
+发布： kubectl set image deploy/jackhttpd jackhttpd=csuxh/jackhttpd:v1.3 && kubectl rollout pause deploy/jackhttpd  
+kubectl rollout resume deploy/jackhttpd
+回滚：kubectl rollout history deploy/jackhttpd
+kubectl rollout undo deploy/jackhttpd --to-revision=2 (默认上一个版本)
+扩容、缩容： kubectl scale xxx
+
+
+DaemonSet:
+ikubernetes/filebeat:5.6.5-alpine
+支持rollingUpdate和deleteUpdate, 仅支持maxUnavaliable方式(默认1)
+
+JOB:
+batch/v1 , Job
+spec.parallelism 并发数, completions 总数
+扩容：kubectl scale jobs/job-name --replicas=3
+删除： spec.activeDeadlineSeconds 最大活动时间, backoffLimit 重试次数，默认6
+
+CronJob：
+
+
+PDB: pod distribution budget 
+
