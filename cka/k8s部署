@@ -1,0 +1,486 @@
+安装docker:
+sudo apt-get -y install \
+ apt-transport-https \
+  ca-certificates \
+  curl
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository \
+       "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+       $(lsb_release -cs) \
+       stable"
+
+sudo apt-get update
+sudo apt-get -y install docker-ce
+
+添加阿里云镜像加速：
+vi /etc/docker/daemon.json
+{ 
+"registry-mirrors": ["https://alzgoonw.mirror.aliyuncs.com"] 
+}
+
+systemctl daemon-reload
+systemctl restart docker
+
+1. 初始化和全局变量
+sudo hostnamectl set-hostname kube-node1
+
+vi /etc/hosts
+10.211.55.17 kube-node1 kube-node1
+
+useradd -m k8s
+echo k8s:123456 | chpasswd
+useradd -m docker
+gpasswd -a k8s docker
+
+无密钥ssh登录：
+ssh-keygen -t rsa
+ssh-copy-id root@kube-node1
+ssh-copy-id root@kube-node2
+ssh-copy-id root@kube-node3
+
+ssh-copy-id k8s@kube-node1
+ssh-copy-id k8s@kube-node2
+ssh-copy-id k8s@kube-node3
+
+mkdir -p /opt/k8s/bin
+echo 'PATH=/opt/k8s/bin:$PATH' > /root/.bashrc
+
+依赖包：
+apt-get install -y conntrack ipvsadm ipset jq sysstat iptables libseccomp(没有)
+
+
+防火墙：
+root@kube-node1:~# iptables -F
+root@kube-node1:~#
+root@kube-node1:~#
+root@kube-node1:~# iptables -X
+root@kube-node1:~# iptables -F -t nat
+root@kube-node1:~# iptables -X -t nat
+root@kube-node1:~#
+root@kube-node1:~#
+root@kube-node1:~# iptables -P FORWARD ACCEPT
+root@kube-node1:~#
+
+关闭SWAP或者kubectl启动时设置--fail-swap-on
+swapoff -a
+
+关闭selinux: setenforce 0  
+systemctl stop dnsmasq
+
+加载内核模块：
+modprobe br_netfilter
+modprobe ip_vs
+
+设置系统参数：
+root@kube-node1:/data/k8s# sysctl -p kubernets.conf
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward = 1
+sysctl: cannot stat /proc/sys/net/ipv4/tcp_tw_recycle: No such file or directory
+vm.swappiness = 0
+vm.overcommit_memory = 1
+vm.panic_on_oom = 0
+fs.inotify.max_user_watches = 89100
+fs.file-max = 52706963
+fs.nr_open = 52706963
+net.ipv6.conf.all.disable_ipv6 = 1
+net.netfilter.nf_conntrack_max = 2310720
+
+创建目录授权：
+mkdir -p /opt/k8s/bin
+chown -R k8s /opt/k8s
+mkdir -p /etc/kubernetes/cert
+chown -R k8s /etc/kubernetes
+mkdir -p /etc/etcd/cert
+chown -R k8s /etc/etcd/cert
+mkdir -p /var/lib/etcd && chown -R k8s /var/lib/etcd
+
+
+2. 创建CA证书(x509)和密钥
+/opt/k8s/bin
+wget https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
+wget https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+wget https://pkg.cfssl.org/R1.2/cfssl-certinfo_linux-amd64
+
+生成CA证书：
+root@kube-node1:/data/k8s# cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+2019/05/22 12:23:06 [INFO] generating a new CA key and certificate from CSR
+2019/05/22 12:23:06 [INFO] generate received request
+2019/05/22 12:23:06 [INFO] received CSR
+2019/05/22 12:23:06 [INFO] generating key: rsa-2048
+2019/05/22 12:23:07 [INFO] encoded CSR
+2019/05/22 12:23:07 [INFO] signed certificate with serial number 223074454740075679412358261002873104825989780668
+
+
+
+3 安装kubectl 生成配置文件
+snap install kubectl --classic
+创建admin证书：
+cfssl gencert -ca=/etc/kubernetes/cert/ca.pem -ca-key=/etc/kubernetes/cert/ca-key.pem -config=/etc/kubernetes/cert/ca-config.json -profile=kubernetes admin-csr.json | cfssljson -bare admin
+
+创建kubeconfig文件：
+#设置集群参数
+kubectl config set-cluster kubernetes \
+--certificate-authority=/etc/kubernetes/cert/ca.pem \
+--embed-certs=true \
+--server=${KUBE_APISERVER} \
+--kubeconfig=kubectl.kubeconfig
+
+# 设置客户端认证参数
+kubectl config set-credentials admin \
+  --client-certificate=/etc/kubernetes/cert/admin.pem \
+  --client-key=/etc/kubernetes/cert/admin-key.pem \
+  --embed-certs=true \
+  --kubeconfig=kubectl.kubeconfig
+
+
+# 设置上下文参数
+kubectl config set-context kubernetes \
+  --cluster=kubernetes \
+  --user=admin \
+  --kubeconfig=kubectl.kubeconfig
+
+  # 设置默认上下文
+kubectl config use-context kubernetes --kubeconfig=kubectl.kubeconfig
+
+4. 部署etcd集群
+下载etcd: https://github.com/etcd-io/etcd/releases/tag/v3.3.13
+生成etcd证书和私钥
+etcd-csr.json
+cfssl gencert -ca=/etc/kubernetes/cert/ca.pem \
+    -ca-key=/etc/kubernetes/cert/ca-key.pem \
+    -config=/etc/kubernetes/cert/ca-config.json \
+    -profile=kubernetes etcd-csr.json | cfssljson -bare etcd
+
+    创建etcd对应systemd unit文件：
+
+    sed -e "s/##NODE_NAME##/${NODE_NAMES[i]}/" -e "s/##NODE_IP##/${NODE_IPS[i]}/" etcd.service.template > etcd-${NODE_IPS[i]}.service
+    cp etcd-10.211.55.17.service /etc/systemd/system/etcd.service
+
+    启动：
+    问题1：--inital-cluster=后面不能用环境变量
+    May 22 16:27:55 kube-node1 etcd[9333]: couldn't find local name "kube-node1" in the initial cluster configuration
+
+检查健康状态：
+node_ip=10.211.55.17
+ETCDCTL_API=3 /opt/k8s/bin/etcdctl     --endpoints=https://${node_ip}:2379     --cacert=/etc/kubernetes/cert/ca.pem     --cert=/etc/etcd/cert/etcd.pem     --key=/etc/etcd/cert/etcd-key.pem endpoint health
+https://10.211.55.17:2379 is healthy: successfully committed proposal: took = 5.683374ms
+
+查看Leader:
+ETCDCTL_API=3 /opt/k8s/bin/etcdctl \
+  -w table --cacert=/etc/kubernetes/cert/ca.pem \
+  --cert=/etc/etcd/cert/etcd.pem \
+  --key=/etc/etcd/cert/etcd-key.pem \
+  --endpoints=${ETCD_ENDPOINTS} endpoint status 
+
+6. 配置网络 Flannel
+wget https://github.com/coreos/flannel/releases/download/v0.11.0/flannel-v0.11.0-linux-amd64.tar.gz
+
+ansible k8s -m copy -a 'src=./ dest=/opt/k8s/bin mode=755 backup=yes' -o
+
+bash-3.2$ ansible k8s -m shell -a 'rm -rf /opt/k8s/bin/flannel-v0.11.0-linux-amd64.tar.gz /opt/k8s/bin/README.md' -o
+创建Flannel证书
+flanneld-csr.json
+cfssl gencert -ca=/etc/kubernetes/cert/ca.pem \
+  -ca-key=/etc/kubernetes/cert/ca-key.pem \
+  -config=/etc/kubernetes/cert/ca-config.json \
+  -profile=kubernetes flanneld-csr.json | cfssljson -bare flanneld
+
+向etcd写入集群pod网段信息
+  root@kube-node1:/data/k8s/initial# ./write_podnet_to_etcd.sh
+{"Network":"172.30.0.0/16", "SubnetLen": 21, "Backend": {"Type": "vxlan"}}
+
+
+
+ETCDCTL_API=3 /opt/k8s/bin/etcdctl  --endpoints=$ETCD_ENDPOINTS  --cacert=/etc/kubernetes/cert/ca.pem     --cert=/etc/flanneld/cert/flanneld.pem     --key=/etc/flanneld/cert/flanneld-key.pem  ls ${FLANNEL_ETCD_PREFIX}/subnets
+
+ip addr show flannel.1|grep -w inet
+
+
+7. 
+kube-apiserver 高可用之 nginx 代理
+基于 nginx 代理的 kube-apiserver 高可用方案
+控制节点的 kube-controller-manager、kube-scheduler 是多实例部署，所以只要有一个实例正常，就可以保证高可用；
+集群内的 Pod 使用 K8S 服务域名 kubernetes 访问 kube-apiserver， kube-dns 会自动解析出多个 kube-apiserver 节点的 IP，所以也是高可用的；
+在每个节点起一个 nginx 进程，后端对接多个 apiserver 实例，nginx 对它们做健康检查和负载均衡；
+kubelet、kube-proxy、controller-manager、scheduler 通过本地的 nginx（监听 127.0.0.1）访问 kube-apiserver，从而实现 kube-apiserver 的高可用；
+
+master节点：
+cd /opt/k8s/work
+wget https://dl.k8s.io/v1.14.2/kubernetes-server-linux-amd64.tar.gz
+tar -xzvf kubernetes-server-linux-amd64.tar.gz
+cd kubernetes
+tar -xzvf  kubernetes-src.tar.gz
+
+cd /opt/k8s/work
+source /opt/k8s/bin/environment.sh
+for node_ip in ${NODE_IPS[@]}
+  do
+    echo ">>> ${node_ip}"
+    scp kubernetes/server/bin/{apiextensions-apiserver,cloud-controller-manager,kube-apiserver,kube-controller-manager,kube-proxy,kube-scheduler,kubeadm,kubectl,kubelet,mounter} root@${node_ip}:/opt/k8s/bin/
+    ssh root@${node_ip} "chmod +x /opt/k8s/bin/*"
+  done
+
+配置api-server集群: ( 源service文件不对，参考https://www.jianshu.com/p/f747b73fc081)
+
+cfssl gencert -ca=/etc/kubernetes/cert/ca.pem \
+  -ca-key=/etc/kubernetes/cert/ca-key.pem \
+  -config=/etc/kubernetes/cert/ca-config.json \
+  -profile=kubernetes kubernetes-csr.json | cfssljson -bare kubernetes
+创建加密配置文件：
+  ansible k8s -m copy -a "src=encryption-config.yaml dest=/etc/kubernetes/encryption-config.yaml"
+创建审计策略文件： audit-policy.yaml
+  创建后续访问 metrics-server 使用的证书： proxy-client-csr.json 
+  cfssl gencert -ca=/etc/kubernetes/cert/ca.pem \
+  -ca-key=/etc/kubernetes/cert/ca-key.pem  \
+  -config=/etc/kubernetes/cert/ca-config.json  \
+  -profile=kubernetes proxy-client-csr.json | cfssljson -bare proxy-client
+
+
+ansible k8s -m shell -a "mkdir -p /data/k8s/k8s/kube-apiserver"
+
+token.csv:
+head -c 16 /dev/urandom | od -An -t x | tr -d ' '
+
+02595d58327d6fb6bde0da04f98bbeca,kubelet-bootstrap,10001,"system:kubelet-bootstrap"
+
+
+启动： systemctl start kube-apiserver
+打印 kube-apiserver 写入 etcd 的数据
+source /opt/k8s/bin/environment.sh
+ETCDCTL_API=3 etcdctl \
+    --endpoints=${ETCD_ENDPOINTS} \
+    --cacert=/etc/kubernetes/cert/ca.pem \
+    --cert=/etc/etcd/cert/etcd.pem \
+    --key=/etc/etcd/cert/etcd-key.pem \
+    get /registry/ --prefix --keys-only
+
+
+  检查集群信息：
+  kubectl cluster-info
+  kubectl get all --all-namespaces
+  kubectl get componentstatuses
+netstat -lnpt|grep kube
+
+授予 kube-apiserver 访问 kubelet API 的权限
+  kubectl create clusterrolebinding kube-apiserver:kubelet-apis --clusterrole=system:kubelet-api-admin --user kubernetes
+
+
+ 配置kube-controller-manager 集群：
+ 证书签名请求： kube-controller-manager-csr.json
+
+
+ 生成证书和私钥：
+cd /opt/k8s/token
+cfssl gencert -ca=/etc/kubernetes/cert/ca.pem \
+  -ca-key=/etc/kubernetes/cert/ca-key.pem \
+  -config=/etc/kubernetes/cert/ca-config.json \
+  -profile=kubernetes kube-controller-manager-csr.json | cfssljson -bare kube-controller-manager
+ls kube-controller-manager*pem
+
+创建kubeconfig文件：
+
+source /opt/k8s/bin/environment.sh
+kubectl config set-cluster kubernetes \
+  --certificate-authority=/etc/kubernetes/cert/ca.pem \
+  --embed-certs=true \
+  --server=${KUBE_APISERVER} \
+  --kubeconfig=kube-controller-manager.kubeconfig
+
+kubectl config set-credentials system:kube-controller-manager \
+  --client-certificate=kube-controller-manager.pem \
+  --client-key=kube-controller-manager-key.pem \
+  --embed-certs=true \
+  --kubeconfig=kube-controller-manager.kubeconfig
+
+kubectl config set-context system:kube-controller-manager \
+  --cluster=kubernetes \
+  --user=system:kube-controller-manager \
+  --kubeconfig=kube-controller-manager.kubeconfig
+
+kubectl config use-context system:kube-controller-manager --kubeconfig=kube-controller-manager.kubeconfig
+
+
+配置service:
+mkdir -p ${K8S_DIR}/kube-controller-manager
+systemctl start kube-controller-manager
+netstat -lnpt | grep kube-cont
+
+查看metrics:
+$ curl -s --cacert /etc/kubernetes/cert/ca.pem --cert /etc/kubernetes/cert/admin.pem --key /etc/kubernetes/cert/admin-key.pem https://10.211.55.20:10252/metrics |head
+
+查看权限：
+kubectl describe clusterrole system:kube-controller-manager
+kubectl describe clusterrole system:controller:deployment-controller
+
+查看leader:
+kubectl get endpoints kube-controller-manager --namespace=kube-system  -o yaml
+
+
+部署高可用 kube-scheduler 集群
+kube-scheduler-csr.json
+cfssl gencert -ca=/etc/kubernetes/cert/ca.pem \
+  -ca-key=/etc/kubernetes/cert/ca-key.pem \
+  -config=/etc/kubernetes/cert/ca-config.json \
+  -profile=kubernetes kube-scheduler-csr.json | cfssljson -bare kube-scheduler
+
+
+kubectl config set-cluster kubernetes \
+  --certificate-authority=/etc/kubernetes/cert/ca.pem \
+  --embed-certs=true \
+  --server=${KUBE_APISERVER} \
+  --kubeconfig=kube-scheduler.kubeconfig
+
+kubectl config set-credentials system:kube-scheduler \
+  --client-certificate=kube-scheduler.pem \
+  --client-key=kube-scheduler-key.pem \
+  --embed-certs=true \
+  --kubeconfig=kube-scheduler.kubeconfig
+
+kubectl config set-context system:kube-scheduler \
+  --cluster=kubernetes \
+  --user=system:kube-scheduler \
+  --kubeconfig=kube-scheduler.kubeconfig
+
+kubectl config use-context system:kube-scheduler --kubeconfig=kube-scheduler.kubeconfig
+
+
+启动： ansible k8s -m shell -a "systemctl start kube-scheduler"
+netstat -lnpt |grep kube-sch
+curl -s http://10.211.55.20:10251/metrics |head
+curl -s --cacert /etc/kubernetes/cert/ca.pem --cert /etc/kubernetes/cert/admin.pem --key /etc/kubernetes/cert/admin-key.pem https://10.211.55.20:10259/metrics |head
+
+查看leader:
+kubectl get endpoints kube-scheduler --namespace=kube-system  -o yaml
+
+
+
+配置docker网络：（重要：配成flannel的子网）
+/lib/systemd/system/docker.service
+source /run/flannel/docker
+#ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+改成：
+ExecStart=/usr/bin/dockerd $DOCKER_OPTS
+
+
+部署配置kubelete:
+kubelet 运行在每个 worker 节点上，接收 kube-apiserver 发送的请求，管理 Pod 容器，执行交互式命令，如 exec、run、logs 等。
+kubelet 启动时自动向 kube-apiserver 注册节点信息，内置的 cadvisor 统计和监控节点的资源使用情况
+kubelete_bootstrap_config.sh
+
+查看token和secret:
+kubeadm token list --kubeconfig ~/.kube/config
+kubectl get secrets  -n kube-system|grep bootstrap-token
+
+报错1：默认情况下，这个 user 和 group 没有创建 CSR 的权限，kubelet 启动失败，错误日志如下
+
+kubectl create clusterrolebinding kubelet-bootstrap --clusterrole=system:node-bootstrapper --group=system:bootstrappers
+
+报错2：Error from server (Forbidden): Forbidden (user=system:anonymous, verb=get, resource=nodes, subresource=proxy)
+
+kubectl create clusterrolebinding system:anonymous   --clusterrole=cluster-admin   --user=system:anonymous
+报错3：root@kube-node1:/data/k8s/rbac# kubectl exec -it nginx-ds-dtdtq date
+error: unable to upgrade connection: Unauthorized
+解决方法：在 api 启动参数添加--kubelet-client-certificate 和 --kubelet-client-key
+kubelet 启动参数添加 --client-ca-file
+然后运行 exec 就提示 kubernetes 用户无权限(原来提示匿名用户，现在提示 kubernetes 用户，我参数指定是 kube-api 用的 ca 证书，推测这个用户是证书里写的吧？)，然后再给 kubernetes 用户赋了 cluster-admin 权限就可以了
+
+
+kubectl apply -f csr-crb.yaml
+
+kubectl get csr
+
+手工approve:
+kubectl certificate approve csr-tkds2
+netstat -tnpl | grep kubelet
+
+
+kubectl describe clusterrole system:kubelet-api-admin
+
+认证和授权：
+curl -s --cacert /etc/kubernetes/cert/ca.pem --cert /etc/kubernetes/cert/admin.pem --key /etc/kubernetes/cert/admin-key.pem https://10.211.55.22:10250/metrics | head
+
+
+部署 kube-proxy 组件
+创建证书：
+kube-proxy-csr.json
+cfssl gencert -ca=/etc/kubernetes/cert/ca.pem \
+  -ca-key=/etc/kubernetes/cert/ca-key.pem \
+  -config=/etc/kubernetes/cert/ca-config.json \
+  -profile=kubernetes  kube-proxy-csr.json | cfssljson -bare kube-proxy
+
+kubectl config set-cluster kubernetes \
+  --certificate-authority=/etc/kubernetes/cert/ca.pem \
+  --embed-certs=true \
+  --server=${KUBE_APISERVER} \
+  --kubeconfig=kube-proxy.kubeconfig
+
+kubectl config set-credentials kube-proxy \
+  --client-certificate=kube-proxy.pem \
+  --client-key=kube-proxy-key.pem \
+  --embed-certs=true \
+  --kubeconfig=kube-proxy.kubeconfig
+
+kubectl config set-context default \
+  --cluster=kubernetes \
+  --user=kube-proxy \
+  --kubeconfig=kube-proxy.kubeconfig
+
+kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
+
+注: kube-proxy-config.yaml里的cidr-addr不能用环境变量
+
+netstat -tnlp | grep kube-proxy
+ipvsadm -ln
+
+
+验证集群状态：
+kubectl get nodes
+
+
+
+插件：
+coreDNS:
+sed -i -e "s/__PILLAR__DNS__DOMAIN__/${CLUSTER_DNS_DOMAIN}/" -e "s/__PILLAR__DNS__SERVER__/${CLUSTER_DNS_SVC_IP}/" coredns.yaml
+问题1： crashbackoff
+删除configmap中loop
+kubectl edit cm coredns -n kube-system
+问题2：
+E0604 08:20:20.664107       1 reflector.go:205] github.com/coredns/coredns/plugin/kubernetes/controller.go:313: Failed to list *v1.Service: Get https://10.254.0.1:443/api/v1/services?limit=500&resourceVersion=0: x509: certificate is valid for 127.0.0.1, 10.211.55.20, 10.211.55.21, 10.211.55.22, not 10.254.0.1
+E0604 08:20:20.664729       1 reflector.go:205] github.com/coredns/coredns/plugin/kubernetes/controller.go:320: Failed to list *v1.Namespace: Get https://10.254.0.1:443/api/v1/namespaces?limit=500&resourceVersion=0: x509: certificate is valid for 127.0.0.1, 10.211.55.20, 10.211.55.21, 10.211.55.22, not 10.254.0.1
+原因：
+a. https://github.com/opsnull/follow-me-install-kubernetes-cluster/commit/719e5f01e9dcbf96e1a19159ae68a18c7fa9171b
+kubernetes-csr.json 里kubernetes.default.svc.cluster.local. 多了个. , ip里需要加10.254.0.1
+
+
+
+准入控制：
+./kube/config 找到client-certificate-data部分
+base64 -d client-certificate-data.txt  | openssl x509 -text -noout
+
+当前context:
+kubectl config get-contexts
+
+curl http://localhost:8080/api/v1/namespaces/default/pods/nginx-ds-dtdtq/log
+
+kubectl get pods/nginx-ds-dtdtq -o yaml
+
+kubectl config view
+
+root@kube-node3:~/.kube# kubectl exec -it nginx-ds-nnxtr sh
+error: unable to upgrade connection: Unauthorized
+
+the server has asked for the client to provide credentials ( pods/log nginx-ds-dtdtq)
+
+ls -l /etc/kubernetes/cert/kubelet*
+
+
+kubectl label node kube-node2  filter=eip
+
+
+
+
+
+
+

@@ -33,11 +33,85 @@ kubectl  annotate svc/jackhttpd-service created-by="jack.xia"
 6. POD生命周期
 initContainer
 spec.lifecycle: postStart/preStop 
-存活性探测： livenessProbe  readinessProbe
+存活性探测： spec.livenessProbe  readinessProbe
 ExecAction, TCPSocketAction, HTTPGetAction
 (restartPolicy: Always/OnFailure/NEVER)
 
+spec:
+  containers:
+  - name: liveness-exec-demo
+    image: busybox:1.31.0
+    imagePullPolicy: IfNotPresent
+    args: ["/bin/sh", "-c", "touch /tmp/healthy; sleep 60; rm -rf /tmp/healthy; sleep 100"]
+    livenessProbe:
+      exec:
+        command: ["test", "-e", "/tmp/healthy"]
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: httpd
+        scheme: HTTP
+     livenessProbe:
+      tcpSocket:
+        port: httpd
+其它属性：
+initialDelaySeconds: default 0s
+timeoutSeconds: 1s
+periodSeconds: 10s
+successThreshold: 1  failureThreshold: 3
 
+就绪性探测：readinessProbe
+(生产环境中由于应用启动需要时间，必须定义就绪性探测机)
+
+
+资源需求和限制：
+
+Qos Class:
+Guaranteed
+Burstable
+BestEffort
+
+
+7. POD控制器：
+ReplicaSet
+kubectl get pods -1 app=rs-demo -o \
+custom columns=Name:metadata name,Image:spec . conta 工ners[OJ .image
+
+kubectl scale replicasets rs-example --current-replcas = 2 --replicas=4
+kubectl delete replicasets rs-sample --cascade=false(保留pod)
+
+Deployment控制器：
+kubectl patch deploy/jackhttpd -p '{"spec": {"minReadySeconds": 5}}'
+kubectl set image deploy/jackhttpd jackhttpd=csuxh/jackhttpd:v1.1
+kubectl rollout status deploy/jackhttpd
+
+金丝雀发布(Canary Release)： pause/resume  maxSurge,maxUnavailable 部分更新, pause之后验证，再恢复完成更新
+kubectl patch deploy/jackhttpd -p '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1, "maxUnavailable": 0}}}}'
+
+发布： kubectl set image deploy/jackhttpd jackhttpd=csuxh/jackhttpd:v1.3 && kubectl rollout pause deploy/jackhttpd  
+kubectl rollout resume deploy/jackhttpd
+回滚：kubectl rollout history deploy/jackhttpd
+kubectl rollout undo deploy/jackhttpd --to-revision=2 (默认上一个版本)
+扩容、缩容： kubectl scale xxx
+
+
+DaemonSet:
+ikubernetes/filebeat:5.6.5-alpine
+支持rollingUpdate和deleteUpdate, 仅支持maxUnavaliable方式(默认1)
+
+JOB:
+batch/v1 , Job
+spec.parallelism 并发数, completions 总数
+扩容：kubectl scale jobs/job-name --replicas=3
+删除： spec.activeDeadlineSeconds 最大活动时间, backoffLimit 重试次数，默认6
+
+CronJob：
+
+
+PDB: pod distribution budget 
+
+
+8.
 
 
  secret:
