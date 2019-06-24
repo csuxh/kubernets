@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: stress-pod
+spec:
+  nodeSelector:
+    env: kube-node2
+  containers:
+  - name: stress-test
+    image: ikubernetes/stress-ng
+    command: ["/usr/bin/stress-ng", "-m 1", "-c 1", "-metrics-brief"]
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "200m"

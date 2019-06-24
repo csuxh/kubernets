@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp2
+spec:
+  nodeSelector:
+    env: master
+  containers:
+  - name: lifecycle-demo
+    image: csuxh/jackhttpd:v1.2
+    lifecycle:
+      postStart:
+        exec:
+          command: ["bin/sh", "-c", "ifconfig eth0 > /etc/ipaddr"]
+#	  command: ["bin/sh", "-c", "ifconfig eth0 | grep inet | sed s/^.*addr://g  | sed s/Bcast.*$//g > /etc/ipaddr"]
