@@ -81,6 +81,7 @@ kubectl scale replicasets rs-example --current-replcas = 2 --replicas=4
 kubectl delete replicasets rs-sample --cascade=false(保留pod)
 
 Deployment控制器：
+更新：
 kubectl patch deploy/jackhttpd -p '{"spec": {"minReadySeconds": 5}}'
 kubectl set image deploy/jackhttpd jackhttpd=csuxh/jackhttpd:v1.1
 kubectl rollout status deploy/jackhttpd
@@ -106,12 +107,31 @@ spec.parallelism 并发数, completions 总数
 删除： spec.activeDeadlineSeconds 最大活动时间, backoffLimit 重试次数，默认6
 
 CronJob：
-
+batch/v1beta1, CronJob, spec.schedule
+kubectl run crontabjob2 --schedule="*/1 * * * *" --restart=OnFailure --image=busybox -- /bin/sh -c "date; echo Hello from the Kubernetes cluster"
+cocurrencyPolicy: 是否允许并行
 
 PDB: pod distribution budget 
+policy/v1beta1, PodDisruptionBudget
+
+8.service和ingress
+kube proxy请求代理方式：userspace, iptables, ipvs(默认)
+
+kubectl expose xxx
+kubectl get endpoints
 
 
-8.
+会话粘性：session affinity 只能基于IP,NAT过来的无法区分
+spec.sessionAffinity(None/ClientIP), sessionAffinityConfig(时长，默认10800秒,配合timeoutSeconds)
+
+服务发现：coredns
+zookeepr/etcd/dns
+Eureka(Netflix), Consul(HashiCorp)
+
+服务暴露：
+service类型： spec.type  ClusterIP, NodePort, LoadBalancer, ExternalName(将外部服务映射到集群内)
+
+Headless Service:
 
 
  secret:

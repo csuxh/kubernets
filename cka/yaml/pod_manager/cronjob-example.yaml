@@ -1,0 +1,23 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: cronjob-example
+  labels:
+    app: mycronjob
+spec:
+  schedule: "*/2 * * *  *"
+  jobTemplate:
+    metadata:
+      labels:
+        app: mycronjob_test
+    spec:
+      template:
+        spec:
+          containers:
+          - name: myjob
+            image: alpine
+            command:
+            - /bin/sh
+            - -command
+            - date; echo test from xxx ; sleep 10
+          restartPolicy: OnFailure
