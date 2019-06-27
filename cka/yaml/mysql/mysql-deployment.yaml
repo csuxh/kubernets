@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: default
+  labels:
+    k8s-app: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: mysql
+  template:
+    metadata: 
+      labels:
+        k8s-app: mysql
+    spec:
+      nodeSelector:
+        type: mysql-server
+      containers:
+      - image: mysql:5.7
+        name: mysql
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: mysql-secret
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: local-pv
+          mountPath: /var/lib/mysql
+      volumes:
+        - name: local-pv
+          persistentVolumeClaim:
+            claimName: mysql-claim
+

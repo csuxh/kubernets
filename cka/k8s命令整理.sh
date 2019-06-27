@@ -134,7 +134,26 @@ service类型： spec.type  ClusterIP, NodePort, LoadBalancer, ExternalName(将�
 Headless Service:
 
 
+Ingress Controller:  实现方式nginx, Envoy, HaProxy, Traefik
+
+9. 数据卷与持久化
+emptyDir,hostPath,NFF, Gitrepo........； 特殊类型： Secret, ConfigMap
+emptyDir: 跟随pod生命周期
+gitRepo: (已废弃？)
+hostPath:
+Ceph RBD
+
+
+
+
  secret:
 kubectl create secret generic test-secret --from-literal=username='breeze',password='123456'
 
 echo -n "xiahang" | base64
+
+
+rancher
+https://k3s.io
+
+
+kubectl get pod -o wide | grep Completed | awk '{print $1}' | xargs kubectl delete pod

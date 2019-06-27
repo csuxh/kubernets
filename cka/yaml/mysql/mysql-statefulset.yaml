@@ -1,0 +1,53 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels:
+    k8s-app: mysql
+spec:
+  type: NodePort
+  ports:
+  - port: 3306
+    name: mysql
+  selector:
+    k8s-app: mysql
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet 
+metadata:
+  name: mysql
+  namespace: default
+  labels:
+    k8s-app: mysql
+spec:
+  serviceName: "mysql"
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: mysql
+  template:
+    metadata: 
+      labels:
+        k8s-app: mysql
+    spec:
+      nodeSelector:
+        type: mysql-server
+      containers:
+      - image: mysql:5.7
+        name: mysql
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: mysql-secret
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: local-pv
+          mountPath: /var/lib/mysql
+      volumes:
+        - name: local-pv
+          persistentVolumeClaim:
+            claimName: hostpath-statefulset001-0
+
