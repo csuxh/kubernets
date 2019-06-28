@@ -143,12 +143,17 @@ gitRepo: (已废弃？)
 hostPath:
 Ceph RBD
 
+PV/PVC, StorageClass
+downwardAPI: 环境变量注入，存储卷式元数据注入 **？？
 
+10. 配置 ConfigMap和Secret
+通过命令行参数；通过环境变量(Environment)
+configmap(cm): 键值对，文件（两级软连接，支持自动更新），目录，yaml(v1, ConfigMap, data)
+kubectl create configmap cm-network --from-file=/root/ifcfg-ens37
+configmap存储卷：（不支持自动更新）
 
-
- secret:
+secret: 4种资源类型 Opaque(base64, generic), kubernetes.io/service-account-token, 
 kubectl create secret generic test-secret --from-literal=username='breeze',password='123456'
-
 echo -n "xiahang" | base64
 
 
