@@ -131,7 +131,9 @@ Eureka(Netflix), Consul(HashiCorp)
 服务暴露：
 service类型： spec.type  ClusterIP, NodePort, LoadBalancer, ExternalName(将外部服务映射到集群内)
 
-Headless Service:
+Headless Service:没有clusterIP, nslookup会解析出所有endpoint地址，可用于外部服务发现
+kubectl run cirros-$RANDOM --rm -it --image=cirros -- sh
+nslookup headless-service
 
 
 Ingress Controller:  实现方式nginx, Envoy, HaProxy, Traefik
