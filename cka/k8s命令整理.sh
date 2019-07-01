@@ -159,6 +159,49 @@ kubectl create secret generic test-secret --from-literal=username='breeze',passw
 echo -n "xiahang" | base64
 
 
+
+12. 认证、授权、准入控制
+Authentication(鉴定用户)->Authorization(操作权限鉴定)->Admin Control(资源对象具体操作权限检查)
+user account, service account -> 用户组 system:unauthenticated, system:authenticated, system:serviceaccounts, system.serviceaccounts:<namespace>
+
+认证方式：
+X509客户端证书认证()：/CN=linux/O=admin Common Name, Organization(用户，组)
+Static Token File: 
+webhook令牌：
+匿名请求：system:anonymous
+
+授权方式：
+Node, ABAC(Attribute-based access control), RBAC(role-based), Webhook
+
+准入控制器:
+ServiceAccount, ...
+
+kubectl create secretaccount xxx
+(可以提前指定imagePullSecrets)
+
+X509认证：
+ssl/tls服务端认证： 客户端单向验证服务端； 双向认证
+etcd集群内部通信： peer类型证书
+etcd客户端与服务器： reset API, 2379,  双向认证
+三大类客户端：
+控制平面：kube-scheduler, kube-controller-manager
+工作组节点：kubelet, kube-proxy  通过tls bootstraping自动生成
+POD及其他：
+
+kubeconfig: kubectl config view/set-cluster/set-context/use-context (默认context: kubernetes-admin@kubernetes)
+(kubectl get pods --context=kubernetes-admin@kubernetes 临时指定context)
+创建用户账号过程：
+a. 生成私钥文件： (umask 077;openssl genrsa -out kube-user1.key 2048)
+b.创建证书签署请求 
+openssl req -new -key kube-user1.key -out kube-user1.csr -subj "/CN=kube-user1/O=kube-group"
+c. 基于系统CA签署证书：
+openssl x509 -req -in kube-user1.csr -CA /etc/kubernetes/pki/ca.crt  -CAkey /etc/kubernetes/pki/ca.key -CAcreateserial -out kube-user1.crt -days 3650
+d.验证 openssl x509 -in kube-user1.crt -text -noout
+e. 生成kubeconfig配置文件
+kubectl config set-credentials kube-user1 --embed-certs=true --client-certificate=./kube-user1.crt --client-key=./kube-user1.key 
+kubectl config set-context kube-user1@kubernetes --cluster=kubernetes --user=kube-user1
+kubectl config use-context kube-user1@kubernetes
+
 rancher
 https://k3s.io
 
