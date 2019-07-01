@@ -158,6 +158,20 @@ secret: 4种资源类型 Opaque(base64, generic), kubernetes.io/service-account-
 kubectl create secret generic test-secret --from-literal=username='breeze',password='123456'
 echo -n "xiahang" | base64
 
+kubectl create secret generic test-secret --from-literal=username='breeze',password='123456'
+加密：echo -n "xiahang" | base64
+解密：echo xxx | base64 -d
+
+tls：
+(umask 077; openssl genrsa -out nginx.key 2048)
+openssl req -new -x509 -key nginx.key -out nginx.crt -subj /c=CN/ST=Beijing/L=Beijing/O=DevOps/CN=jack.cn
+kubectl create secret tls nginx-tls --key=./nginx.key --cert=./nginx.crt
+
+secret存储卷
+imagePullSecret对象：
+kubectl create secret docker-registry local-registry --docker-username=xxx --docker-password=xxx --docker-email=xxx
+
+11. statefulset
 
 
 12. 认证、授权、准入控制
