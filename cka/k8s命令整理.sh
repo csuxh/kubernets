@@ -260,6 +260,36 @@ kubectl config set-credentials kube-user1 --embed-certs=true --client-certificat
 kubectl config set-context kube-user1@kubernetes --cluster=kubernetes --user=kube-user1
 kubectl config use-context kube-user1@kubernetes
 
+kubectl config set-context kubernetes-admin@kubernetes
+
+
+RBAC:
+role/clusterrole, rolebinding/clusterrolebinding
+kubectl create ns testing
+修改当前namespace: kubectl config set-context --current --namespace=testing
+(kubectl api-resources --namespaced=true)
+
+role: namespace级别(无法配置pv,node,namespace等资源,所以需要clusterRole)
+rules.apiGroups, resources, verbs(get,list,create,update,patch,watch,proxy,redirect,delete,deletecollection)
+
+kubectl create role servie-admin --verb="*" --resources="services,services/*" -n testing (不能有空格)
+
+kubectl create rolebinding admin-services --role=service-admin --user=kube-user1 -n testing
+
+一般clusterRole/ClusterRolebinding
+kubectl describe clusterrole/system:discovery: nonResourceURLs
+kubectl get clusterrolebinding/system:discovery -o yaml
+
+聚合型 ClusterRole(匹配某些clusterrole)
+metadata.aggregationRule.clusterRoleSelectors.matchLabels
+样例：kubectl get clusterrole/admin -o yaml
+
+内建的ClusterRole(非system:开头): cluster-admin 
+
+利用系统内置的快速配置权限;rolebinding绑定到clusterrole上，可以限定到namespace级别权限
+kubectl create rolebiding dev-admin --clusterrole=admin --user=kube-user1 -n testing
+
+Dashboard部署验证：(1.7以后版本必须配https才能远程访问)
 
 
 rancher
