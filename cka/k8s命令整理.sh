@@ -290,6 +290,26 @@ metadata.aggregationRule.clusterRoleSelectors.matchLabels
 kubectl create rolebiding dev-admin --clusterrole=admin --user=kube-user1 -n testing
 
 Dashboard部署验证：(1.7以后版本必须配https才能远程访问)
+(umask 077; openssl genrsa -out dashboard.key 2048)
+openssl req -new -key dashboard.key -out dashboard.csr -subj "/O=iKubernetes/CN=dashboard"
+openssl x509 -req -in dashboard.csr -CA /etc/kubernetes/cert/ca.pem -CAkey /etc/kubernetes/cert/ca-key.pem -CAcreateserial  -out dashboard.crt -days 3650
+kubectl create secret generic kubernetes-dashboard-certs -n kube-system --from-file=dashboard.crt=./dashboard.crt --from-file=dashboard.key=./dashboard.key -n kube-system
+kubectl apply -f dashboard.yaml
+配置token认证：
+kubectl create serviceaccount dashboard-admin -n kube-system
+kubectl create clusterrolebinding dashboard-admin --clusterrole=cluster-admin --serviceaccount=kube-system:dashboard-admin
+ADMIN_SECRET=$(kubectl -n kube-system get secret | awk '/^dashboard-admin/{print $1}')
+kubectl describe secrets $ADMIN_SECRET -n kube-system kube-system
+获取到的token即可登录dashboard
+
+配置kubeconfig认证：
+a.初始化集群信息 kubectl config set-cluster kubernetes --embed-certs=true --server="http://xxx:6443" \
+--certificate-autority=/etc/kubernetes/pki/ca.crt --kubeconfig=./dashboard-admin.kubeconfig
+b.获取dashboard-admin的token： 
+ADMIN_SECRET=$(kubectl -n kube-system get secret | awk '/^dashboard-admin/{print $1}')
+ADMIN_TOKEN=$(kubectl  -n kube-system get secret $(ADMIN_SECRET) -o jsonpath={.data.token}|base64 -d)
+kubectl config set-credentials dashboard-admin --token=$(ADMIN_TOKEN) --kubeconfig=./dashboard-admin.kubeconfig
+c. 指定context: kubectl config use-context dashboard-admin --kubeconfig=./dashboard-admin.kubeconfig
 
 
 rancher
