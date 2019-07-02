@@ -131,7 +131,9 @@ Eureka(Netflix), Consul(HashiCorp)
 服务暴露：
 service类型： spec.type  ClusterIP, NodePort, LoadBalancer, ExternalName(将外部服务映射到集群内)
 
-Headless Service:
+Headless Service:没有clusterIP, nslookup会解析出所有endpoint地址，可用于外部服务发现
+kubectl run cirros-$RANDOM --rm -it --image=cirros -- sh
+nslookup headless-service
 
 
 Ingress Controller:  实现方式nginx, Envoy, HaProxy, Traefik
@@ -156,6 +158,63 @@ secret: 4种资源类型 Opaque(base64, generic), kubernetes.io/service-account-
 kubectl create secret generic test-secret --from-literal=username='breeze',password='123456'
 echo -n "xiahang" | base64
 
+kubectl create secret generic test-secret --from-literal=username='breeze',password='123456'
+加密：echo -n "xiahang" | base64
+解密：echo xxx | base64 -d
+
+tls：
+(umask 077; openssl genrsa -out nginx.key 2048)
+openssl req -new -x509 -key nginx.key -out nginx.crt -subj /c=CN/ST=Beijing/L=Beijing/O=DevOps/CN=jack.cn
+kubectl create secret tls nginx-tls --key=./nginx.key --cert=./nginx.crt
+
+secret存储卷
+imagePullSecret对象：
+kubectl create secret docker-registry local-registry --docker-username=xxx --docker-password=xxx --docker-email=xxx
+
+11. statefulset
+
+
+12. 认证、授权、准入控制
+Authentication(鉴定用户)->Authorization(操作权限鉴定)->Admin Control(资源对象具体操作权限检查)
+user account, service account -> 用户组 system:unauthenticated, system:authenticated, system:serviceaccounts, system.serviceaccounts:<namespace>
+
+认证方式：
+X509客户端证书认证()：/CN=linux/O=admin Common Name, Organization(用户，组)
+Static Token File: 
+webhook令牌：
+匿名请求：system:anonymous
+
+授权方式：
+Node, ABAC(Attribute-based access control), RBAC(role-based), Webhook
+
+准入控制器:
+ServiceAccount, ...
+
+kubectl create secretaccount xxx
+(可以提前指定imagePullSecrets)
+
+X509认证：
+ssl/tls服务端认证： 客户端单向验证服务端； 双向认证
+etcd集群内部通信： peer类型证书
+etcd客户端与服务器： reset API, 2379,  双向认证
+三大类客户端：
+控制平面：kube-scheduler, kube-controller-manager
+工作组节点：kubelet, kube-proxy  通过tls bootstraping自动生成
+POD及其他：
+
+kubeconfig: kubectl config view/set-cluster/set-context/use-context (默认context: kubernetes-admin@kubernetes)
+(kubectl get pods --context=kubernetes-admin@kubernetes 临时指定context)
+创建用户账号过程：
+a. 生成私钥文件： (umask 077;openssl genrsa -out kube-user1.key 2048)
+b.创建证书签署请求 
+openssl req -new -key kube-user1.key -out kube-user1.csr -subj "/CN=kube-user1/O=kube-group"
+c. 基于系统CA签署证书：
+openssl x509 -req -in kube-user1.csr -CA /etc/kubernetes/pki/ca.crt  -CAkey /etc/kubernetes/pki/ca.key -CAcreateserial -out kube-user1.crt -days 3650
+d.验证 openssl x509 -in kube-user1.crt -text -noout
+e. 生成kubeconfig配置文件
+kubectl config set-credentials kube-user1 --embed-certs=true --client-certificate=./kube-user1.crt --client-key=./kube-user1.key 
+kubectl config set-context kube-user1@kubernetes --cluster=kubernetes --user=kube-user1
+kubectl config use-context kube-user1@kubernetes
 
 11. statefulset
 
