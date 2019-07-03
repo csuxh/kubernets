@@ -303,17 +303,79 @@ kubectl describe secrets $ADMIN_SECRET -n kube-system kube-system
 获取到的token即可登录dashboard
 
 配置kubeconfig认证：
-a.初始化集群信息 kubectl config set-cluster kubernetes --embed-certs=true --server="http://xxx:6443" \
---certificate-autority=/etc/kubernetes/pki/ca.crt --kubeconfig=./dashboard-admin.kubeconfig
+a.初始化集群信息 kubectl config set-cluster kubernetes --embed-certs=true --server="https://192.168.152.128:6443" \
+--certificate-authority=/etc/kubernetes/pki/ca.crt --kubeconfig=./dashboard-admin.kubeconfig
 b.获取dashboard-admin的token： 
 ADMIN_SECRET=$(kubectl -n kube-system get secret | awk '/^dashboard-admin/{print $1}')
-ADMIN_TOKEN=$(kubectl  -n kube-system get secret $(ADMIN_SECRET) -o jsonpath={.data.token}|base64 -d)
+ADMIN_TOKEN=$(kubectl  -n kube-system get secret $ADMIN_SECRET -o jsonpath={.data.token}|base64 -d)
 kubectl config set-credentials dashboard-admin --token=$(ADMIN_TOKEN) --kubeconfig=./dashboard-admin.kubeconfig
-c. 指定context: kubectl config use-context dashboard-admin --kubeconfig=./dashboard-admin.kubeconfig
+c. 定义context:kubectl config set-context dashboard-admin --cluster=kubernetes --user=dashboard-admin --kubeconfig=./dashboard-admin.kubeconfig
+d.指定context: kubectl config use-context dashboard-admin --kubeconfig=./dashboard-admin.kubeconfig
 
+
+准入控制器：
+CPU内存：LimitRange, LimitRanger
+kind: LimitRange, spec.limits
+创建pod: kubectl run limit-pod1 --image=csuxh/jackhttpd:v1.2 --restart=Never
+[root@jack-master security]# kubectl run limit-pod1 --image=csuxh/jackhttpd:v1.2 --restart=Never --requests='cpu=400m'
+Error from server (Forbidden): pods "limit-pod1" is forbidden: minimum cpu usage per Container is 500m, but request is 400m.
+ResourceQuota资源：ResourceQuota, spec.hard
+kubectl describe quota/quota-example -n testing
+kubectl run limit-pod2 --image=csuxh/jackhttpd:v1.2 --replicas=1  --requests='cpu=400m,memory=256Mi' --limits='cpu=500m,memory=500Mi' -n testing
+PodSecurityPolicy(PSP):集群级别准入控制器
+kubectl explain psp
+使用步骤：
+a.创建psp
+b.创建clusterrole和clusterrolebinding
+c.启用apiserver的psp准入控制器： --enable-admission-plugin后添加PodSecurityPolicy
+d.验证
+
+
+
+
+13.网络
+pod网络实现方式：
+伪网络接口：虚拟网桥, 多路复用, 硬件交换
+CNI规范、CNI插件：容器管理系统<->网络插件,通过json通信
+常用CNI插件：flannel,Calico,kube-router,Weave...
+两类问题：不同容器ip重复，路由
+
+Flannel：不支持网络策略,可以配合calico提供网络策略(通过canal部署)
+后端：VxLAN(可以配置directrouting),  host-gw, UDP
+ip route show
+
+NetworkPolicy
+curl https://docs.projectcalico.org/v3.8/manifests/canal.yaml -O
+https://docs.projectcalico.org/v3.8/getting-started/kubernetes/installation/flannel
+
+Calico
+
+
+
+14.POD资源调度
+Predicate(预选)->Priority(优先级)->Select
+节点亲和调度(spec.affinity.nodeAffinity)：required(硬亲和), preferred(软亲和)
+  标签选择器：In,NotIn,Exists,DoesNotExist,Lt,Gt
+  kubectl explain pod.spec.affinity.nodeAffinity
+pod资源亲和调度： 位置，
+kubectl explain pod.spec.affinity.podAffinity, podAntiAffinity
+taints & tolerations
+master自带taint no schedule, 系统级pod自带tolerations: kubectl describe pod/kube-flannel-ds-amd64-pzmmn -n kube-system
+管理taint:
+添加 kubectl taint nodes node-name key=value:effect
+删除 kubectl taint nodes node-name key=value:effect-
+删除所有 kubectl taint nodes node-name key-
+优选级和抢占式调度
+
+15.系统扩展
 
 rancher
 https://k3s.io
 
 
 kubectl get pod -o wide | grep Completed | awk '{print $1}' | xargs kubectl delete pod
+
+教程：
+https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#-em-service-loadbalancer-em-
+命令：https://kubernetes.io/docs/reference/kubectl/cheatsheet/
+指南：https://kubernetes.feisky.xyz/he-xin-yuan-li/index
