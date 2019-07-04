@@ -434,9 +434,14 @@ prometheus.io/port
 kube-state-metrics
 exporter、Node Exporter
 Alertmanager:
-
 TSDB: time series database -> PromQL
+自定义指标适配器：k8s-prometheus-adapter
 
+自动伸缩
+HPA: Horizonal Pod Autoscaler HPA(v2)
+CA: cluster autoscaler
+VPA: Vertical Pod Autoscaler
+AR：Addon Resizer
 
 
 
