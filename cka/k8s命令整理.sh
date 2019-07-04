@@ -314,12 +314,12 @@ d.指定context: kubectl config use-context dashboard-admin --kubeconfig=./dashb
 
 
 准入控制器：
-CPU内存：LimitRange, LimitRanger
+CPU内存： LimitRange, LimitRanger
 kind: LimitRange, spec.limits
 创建pod: kubectl run limit-pod1 --image=csuxh/jackhttpd:v1.2 --restart=Never
 [root@jack-master security]# kubectl run limit-pod1 --image=csuxh/jackhttpd:v1.2 --restart=Never --requests='cpu=400m'
 Error from server (Forbidden): pods "limit-pod1" is forbidden: minimum cpu usage per Container is 500m, but request is 400m.
-ResourceQuota资源：ResourceQuota, spec.hard
+ResourceQuota资源： ResourceQuota, spec.hard
 kubectl describe quota/quota-example -n testing
 kubectl run limit-pod2 --image=csuxh/jackhttpd:v1.2 --replicas=1  --requests='cpu=400m,memory=256Mi' --limits='cpu=500m,memory=500Mi' -n testing
 PodSecurityPolicy(PSP):集群级别准入控制器
@@ -343,6 +343,8 @@ CNI规范、CNI插件：容器管理系统<->网络插件,通过json通信
 Flannel：不支持网络策略,可以配合calico提供网络策略(通过canal部署)
 后端：VxLAN(可以配置directrouting),  host-gw, UDP
 ip route show
+
+配置在configmap里：cm/kube-flannel-cfg
 
 NetworkPolicy
 curl https://docs.projectcalico.org/v3.8/manifests/canal.yaml -O
@@ -368,6 +370,79 @@ master自带taint no schedule, 系统级pod自带tolerations: kubectl describe p
 优选级和抢占式调度
 
 15.系统扩展
+CRD:CustomResourceDefinitions
+kubectl explain CustomResourceDefinition.spec.validation
+子资源、状态：spec.subresources.status, spec.subresources.scale(支持伸缩)
+categories: 资源类别 spec.names.categories (kubectl get all)
+多版本支持：spec.version -> spec.versions
+
+自定义控制器：<-> 系统内建控制器Controller Manager
+三种模式：
+ 声明式API: kubectl apply
+ 异步：客户端请求于API server存储完成之后即返回，无需等待执行结果
+ 水平式处理(level-based)：仅处理最新的变动
+两个组件：
+Informer/SharedInformer：Listwatcher, ResourceEventHandler, ResyncPeriod
+Workqueue: 后端处理
+
+Kubebuilder, Operator SDK, Metacontoller
+https://github.com/nikhita/custom-database-controller
+
+自定义API Server: 先需要将自定义API Server 以Pod 形式运行于集群之上并为其创建Service 对象， 而后创建一个专用的APIService 对象与主API Server 完成聚合
+kube-aggregator
+kubectl get apiservice
+
+
+
+集群高可用
+etcd: raft选举
+Controller Manager: 分布式锁机制，各实例抢占endpoint资源锁(k8s支持Endpoints和ConfigMap两种类型资源锁)
+kubectl get endpoints/kube-scheduler -n kube-system -o yaml (annotations control-plane.alpha.kubernetes.io/leader: holderIdentity和renewTime )
+
+
+
+16.资源指标及HPA控制器
+集群指标,容器指标,应用程序指标
+cAdvisor, Heapster(InfluxDB, Grafana展示)
+metrics-server(资源指标API)：1.7以后;核心流水线、监控流水线;不存储历史数据
+k8s-prometheus-adapter:自定义指标API
+
+kubectl apply -f 1.8+/
+kubectl api-versions | grep metrics
+访问方式：
+a.通过 kube-apiserver 或 kubectl proxy 访问：
+https://192.168.152.128:6443/apis/metrics.k8s.io/v1beta1/nodes
+https://172.27.129.105:6443/apis/metrics.k8s.io/v1beta1/nodes/
+https://172.27.129.105:6443/apis/metrics.k8s.io/v1beta1/pods
+https://172.27.129.105:6443/apis/metrics.k8s.io/v1beta1/namespace//pods/
+b.直接使用 kubectl 命令访问
+kubectl get --raw "/apis/metrics.k8s.io/v1beta1" | jq .
+kubectl get --raw "/apis/metrics.k8s.io/v1beta1/nodes"
+kubectl get --raw apis/metrics.k8s.io/v1beta1/pods
+kubectl get --raw apis/metrics.k8s.io/v1beta1/nodes/
+kubectl get --raw apis/metrics.k8s.io/v1beta1/namespace//pods/
+
+Top命令： kubectl top node/
+
+
+Prometheus:
+通过apiserver发现资源
+prometheus.io/scrape
+prometheus.io/path
+prometheus.io/port
+组件：
+kube-state-metrics
+exporter、Node Exporter
+Alertmanager:
+
+TSDB: time series database -> PromQL
+
+
+
+
+
+
+
 
 rancher
 https://k3s.io

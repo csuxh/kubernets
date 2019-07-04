@@ -1,0 +1,12 @@
+apiVersion: auth.ikubernetes.io/v1beta1
+kind: User
+metadata:
+  name: admin
+  namespace: default
+spec:
+  userID: 1
+  email: xxx@ikubernetes.cn
+  groups:
+  - superusers
+  - administrators
+  password: "asdfasd131sada"
