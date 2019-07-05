@@ -1,0 +1,11 @@
+Create:
+create clusterrole jack-admin --verb=get,list,watch --resource=* --dry-run
+clusterrolebinding NAME --clusterrole=NAME [--user=username] [--group=groupname] [--serviceaccount=namespace:serviceaccountname] [--dry-run]
+configmap NAME [--from-file=[key=]source] [--from-literal=key1=value1] [--dry-run]
+cronjob NAME --image=image --schedule='0/5 * * * ?' -- [COMMAND] [args...]
+deployment NAME --image=image --replica=3 -o xxx.yaml [--dry-run]  (kubectl run支持功能更多)
+poddisruptionbudget NAME --selector=SELECTOR --min-available=N [--dry-run]
+priorityclass NAME --value=VALUE --global-default=BOOL [--dry-run] (抢占式调度)
+quota NAME [--hard=key1=value1,key2=value2] [--scopes=Scope1,Scope2] [--dry-run=bool] (resource quota)
+role NAME --verb=verb --resource=resource.group/subresource [--resource-name=resourcename] [--dry-run]
+
