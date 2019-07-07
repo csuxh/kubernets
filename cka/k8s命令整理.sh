@@ -444,9 +444,22 @@ VPA: Vertical Pod Autoscaler
 AR：Addon Resizer
 
 
+17. Helm
+管理复杂应用、易于升级、简单分享、回滚
+Charts Repository  Config  Release
+架构：Helm客户端 (grpc交互) Tiller服务器，charts仓库
 
+helm search redis; helm inspect stable/redis; helm list; helm delete xxx;
+helm install stable/redis -n redis --dry-run
+文件目录结构：
+charts.yaml
+requirements.yaml
 
-
+创建过程：
+helm create mychart； helm lint mychart
+helm install --name myapp --dry-run --debug ./mychart  --set service.type=NodePort
+打包：helm package ./mychart; helm install --name myapp2 xxx.tgx 
+运行本地仓库： helm serve  （helm search local）
 
 
 rancher
